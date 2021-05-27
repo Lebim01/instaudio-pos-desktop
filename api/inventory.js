@@ -1,12 +1,11 @@
 const app = require( "express" )();
 const server = require( "http" ).Server( app );
 const bodyParser = require( "body-parser" );
-const Datastore = require( "nedb" );
-const async = require( "async" );
+const mongoose = require('mongoose')
+const Inventory = require('../mongodb/models/inventory')
 const fileUpload = require('express-fileupload');
 const multer = require("multer");
 const fs = require('fs');
-
 
 const storage = multer.diskStorage({
     destination: process.env.APPDATA+'/POS/uploads',
@@ -15,54 +14,31 @@ const storage = multer.diskStorage({
     }
 });
 
-
 let upload = multer({storage: storage});
 
 app.use(bodyParser.json());
 
-
 module.exports = app;
 
- 
-let inventoryDB = new Datastore( {
-    filename: process.env.APPDATA+"/POS/server/databases/inventory.db",
-    autoload: true
-} );
-
-
-inventoryDB.ensureIndex({ fieldName: '_id', unique: true });
-
- 
 app.get( "/", function ( req, res ) {
     res.send( "Inventory API" );
 } );
-
-
  
-app.get( "/product/:productId", function ( req, res ) {
+app.get( "/product/:productId", async function ( req, res ) {
     if ( !req.params.productId ) {
         res.status( 500 ).send( "ID field is required." );
     } else {
-        inventoryDB.findOne( {
-            _id: parseInt(req.params.productId)
-        }, function ( err, product ) {
-            res.send( product );
-        } );
+        const product = await Inventory.findById(req.params.productId)
+        res.send( product );
     }
 } );
 
-
- 
-app.get( "/products", function ( req, res ) {
-    inventoryDB.find( {}, function ( err, docs ) {
-        res.send( docs );
-    } );
+app.get( "/products", async function ( req, res ) {
+    const docs = await Inventory.find()
+    res.send(docs)
 } );
 
-
- 
-app.post( "/product", upload.single('imagename'), function ( req, res ) {
-
+app.post( "/product", upload.single('imagename'), async function ( req, res ) {
     let image = '';
 
     if(req.body.img != "") {
@@ -73,7 +49,6 @@ app.post( "/product", upload.single('imagename'), function ( req, res ) {
         image = req.file.filename;  
     }
  
-
     if(req.body.remove == 1) {
         const path = './resources/app/public/uploads/product_image/'+ req.body.img;
         try {
@@ -81,14 +56,13 @@ app.post( "/product", upload.single('imagename'), function ( req, res ) {
         } catch(err) {
           console.error(err)
         }
-
         if(!req.file) {
             image = '';
         }
     }
     
     let Product = {
-        _id: parseInt(req.body.id),
+        _id: req.body.id,
         price: req.body.price,
         category: req.body.category,
         quantity: req.body.quantity == "" ? 0 : req.body.quantity,
@@ -98,81 +72,43 @@ app.post( "/product", upload.single('imagename'), function ( req, res ) {
     }
 
     if(req.body.id == "") { 
-        Product._id = Math.floor(Date.now() / 1000);
-        inventoryDB.insert( Product, function ( err, product ) {
-            if ( err ) res.status( 500 ).send( err );
-            else res.send( product );
-        });
+        try {
+            Product._id = new mongoose.Types.ObjectId;
+            const newInventory = new Inventory(Product)
+            const savedInventory = await newInventory.save()
+            res.send(savedInventory)
+        }catch(err){
+            console.error(err)
+            res.status( 500 ).send( err );
+        }
     }
-    else { 
-        inventoryDB.update( {
-            _id: parseInt(req.body.id)
-        }, Product, {}, function (
-            err,
-            numReplaced,
-            product
-        ) {
-            if ( err ) res.status( 500 ).send( err );
-            else res.sendStatus( 200 );
-        } );
-
+    else {
+        try {
+            const updatedInventory = await Inventory.findByIdAndUpdate(
+                req.body.id,
+                Product,
+                { new: true }
+            );
+            res.sendStatus( 200 );
+        }catch(err){
+            console.log(err)
+            res.status( 500 ).send( err );
+        }
     }
-
 });
-
-
-
  
-app.delete( "/product/:productId", function ( req, res ) {
-    inventoryDB.remove( {
-        _id: parseInt(req.params.productId)
-    }, function ( err, numRemoved ) {
-        if ( err ) res.status( 500 ).send( err );
-        else res.sendStatus( 200 );
-    } );
+app.delete( "/product/:productId", async function ( req, res ) {
+    try {
+        const _id = req.params.productId
+        const inventoryDeleted = await Inventory.findByIdAndDelete(_id)
+        res.sendStatus( 200 );
+    }catch(err){
+        res.status( 500 ).send( err );
+    }
 } );
 
- 
-
-app.post( "/product/sku", function ( req, res ) {
+app.post( "/product/sku", async function ( req, res ) {
     var request = req.body;
-    inventoryDB.findOne( {
-            _id: parseInt(request.skuCode)
-    }, function ( err, product ) {
-         res.send( product );
-    } );
+    const product = await Inventory.findById(request.skuCode)
+    res.send( product );
 } );
-
- 
-
-
-app.decrementInventory = function ( products ) {
-
-    async.eachSeries( products, function ( transactionProduct, callback ) {
-        inventoryDB.findOne( {
-            _id: parseInt(transactionProduct.id)
-        }, function (
-            err,
-            product
-        ) {
-    
-            if ( !product || !product.quantity ) {
-                callback();
-            } else {
-                let updatedQuantity =
-                    parseInt( product.quantity) -
-                    parseInt( transactionProduct.quantity );
-
-                inventoryDB.update( {
-                        _id: parseInt(product._id)
-                    }, {
-                        $set: {
-                            quantity: updatedQuantity
-                        }
-                    }, {},
-                    callback
-                );
-            }
-        } );
-    } );
-};

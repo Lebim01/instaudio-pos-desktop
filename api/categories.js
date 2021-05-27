@@ -1,71 +1,61 @@
 const app = require( "express" )();
 const server = require( "http" ).Server( app );
 const bodyParser = require( "body-parser" );
-const Datastore = require( "nedb" );
-const async = require( "async" );
-
+const mongoose = require('mongoose')
+const Category = require("../mongodb/models/categories");
 
 app.use( bodyParser.json() );
 
 module.exports = app;
 
- 
-let categoryDB = new Datastore( {
-    filename: process.env.APPDATA+"/POS/server/databases/categories.db",
-    autoload: true
-} );
-
-
-categoryDB.ensureIndex({ fieldName: '_id', unique: true });
 app.get( "/", function ( req, res ) {
     res.send( "Category API" );
 } );
-
-
   
-app.get( "/all", function ( req, res ) {
-    categoryDB.find( {}, function ( err, docs ) {
-        res.send( docs );
-    } );
+app.get( "/all", async function ( req, res ) {
+    try {
+        const categories = await Category.find();
+        res.send(categories)
+    }catch(err){
+        console.error(err)
+    }
 } );
-
  
-app.post( "/category", function ( req, res ) {
+app.post( "/category", async function ( req, res ) {
     let newCategory = req.body;
-    newCategory._id = Math.floor(Date.now() / 1000); 
-    categoryDB.insert( newCategory, function ( err, category) {
-        if ( err ) res.status( 500 ).send( err );
-        else res.sendStatus( 200 );
-    } );
+    newCategory._id = new mongoose.Types.ObjectId;
+    try {
+        const category = new Category(newCategory);
+        const categorySaved = await category.save();
+        console.log(categorySaved);
+        res.sendStatus( 200 );
+    }catch(err){
+        res.status( 500 ).send( err );
+    }
 } );
 
-
-
-app.delete( "/category/:categoryId", function ( req, res ) {
-    categoryDB.remove( {
-        _id: parseInt(req.params.categoryId)
-    }, function ( err, numRemoved ) {
-        if ( err ) res.status( 500 ).send( err );
-        else res.sendStatus( 200 );
-    } );
+app.delete( "/category/:categoryId", async function ( req, res ) {
+    console.log('hola')
+    try {
+        const _id = req.params.categoryId
+        const categoryDeleted = await Category.findByIdAndDelete(_id)
+        res.sendStatus( 200 );
+    }catch(err){
+        console.error(err)
+        res.status( 500 ).send( err );
+    }
 } );
-
  
-
- 
-app.put( "/category", function ( req, res ) {
-    categoryDB.update( {
-        _id: parseInt(req.body.id)
-    }, req.body, {}, function (
-        err,
-        numReplaced,
-        category
-    ) {
-        if ( err ) res.status( 500 ).send( err );
-        else res.sendStatus( 200 );
-    } );
+app.put( "/category", async function ( req, res ) {
+    try {
+        const _id = req.body.id;
+        const updatedTask = await Category.findByIdAndUpdate(
+            _id,
+            req.body,
+            { new: true }
+        );
+        res.sendStatus( 200 );
+    }catch(err){
+        res.status( 500 ).send( err );
+    }
 });
-
-
-
- 

@@ -1,8 +1,10 @@
-let express = require("express"),
+let 
   http = require("http"),
   app = require("express")(),
   server = http.createServer(app),
   bodyParser = require("body-parser");
+
+require('./mongodb/index')
 
 const PORT = process.env.PORT || 8001;
 
@@ -11,7 +13,6 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 
 app.all("/*", function(req, res, next) {
- 
   res.header("Access-Control-Allow-Origin", "*");  
   res.header("Access-Control-Allow-Methods", "GET,PUT,POST,DELETE,OPTIONS");
   res.header(

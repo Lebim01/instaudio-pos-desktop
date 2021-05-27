@@ -71,10 +71,11 @@ $(function () {
         startDate: start,
         endDate: end,
         autoApply: true,
-        timePicker: true,
+        timePicker: false,
         timePicker24Hour: true,
         timePickerIncrement: 10,
-        timePickerSeconds: true,
+        timePickerSeconds: false,
+        
         // minDate: '',
         ranges: {
             'Today': [moment().startOf('day'), moment()],
@@ -218,15 +219,17 @@ if (auth == undefined) {
                         categories.push(item.category);
                     }
 
-                    let item_info = `<div class="col-lg-2 box ${item.category}"
-                                onclick="$(this).addToCart(${item._id}, ${item.quantity}, ${item.stock})">
+                    let item_info = `
+                        <div class="col-lg-2 box ${item.category}" onclick="$(this).addToCart('${item._id}', ${item.quantity}, ${item.stock})">
                             <div class="widget-panel widget-style-2 ">                    
-                            <div id="image"><img src="${item.img == "" ? "./assets/images/default.jpg" : img_path + item.img}" id="product_img" alt=""></div>                    
-                                        <div class="text-muted m-t-5 text-center">
-                                        <div class="name" id="product_name">${item.name}</div> 
-                                        <span class="sku">${item.sku}</span>
-                                        <span class="stock">STOCK </span><span class="count">${item.stock == 1 ? item.quantity : 'N/A'}</span></div>
-                                        <sp class="text-success text-center"><b data-plugin="counterup">${settings.symbol + item.price}</b> </sp>
+                                <div id="image"><img src="${item.img == "" ? "./assets/images/default.jpg" : img_path + item.img}" id="product_img" alt=""></div>                    
+                                <div class="text-muted m-t-5 text-center">
+                                    <div class="name" id="product_name">${item.name}</div> 
+                                    <span class="sku">${item.sku}</span>
+                                    <span class="stock">STOCK </span>
+                                    <span class="count">${item.stock == 1 ? item.quantity : 'N/A'}</span>
+                                </div>
+                                <sp class="text-success text-center"><b data-plugin="counterup">${settings.symbol + item.price}</b> </sp>
                             </div>
                         </div>`;
                     $('#parent').append(item_info);
@@ -277,7 +280,6 @@ if (auth == undefined) {
 
 
         $.fn.addToCart = function (id, count, stock) {
-
             if (stock == 1) {
                 if (count > 0) {
                     $.get(api + 'inventory/product/' + id, function (data) {
@@ -383,14 +385,12 @@ if (auth == undefined) {
         });
 
 
-
         $('body').on('click', '#jq-keyboard button', function (e) {
             let pressed = $(this)[0].className.split(" ");
             if ($("#skuCode").val() != "" && pressed[2] == "enter") {
                 barcodeSearch(e);
             }
         });
-
 
 
         $.fn.addProductToCart = function (data) {
@@ -460,43 +460,45 @@ if (auth == undefined) {
         };
 
 
-
         $.fn.renderTable = function (cartList) {
             $('#cartTable > tbody').empty();
             $(this).calculateCart();
+
             $.each(cartList, function (index, data) {
                 $('#cartTable > tbody').append(
                     $('<tr>').append(
-                        $('<td>', { text: index + 1 }),
-                        $('<td>', { text: data.product_name }),
-                        $('<td>').append(
-                            $('<div>', { class: 'input-group' }).append(
-                                $('<div>', { class: 'input-group-btn btn-xs' }).append(
-                                    $('<button>', {
-                                        class: 'btn btn-default btn-xs',
-                                        onclick: '$(this).qtDecrement(' + index + ')'
-                                    }).append(
-                                        $('<i>', { class: 'fa fa-minus' })
-                                    )
-                                ),
-                                $('<input>', {
-                                    class: 'form-control',
-                                    type: 'number',
-                                    value: data.quantity,
-                                    onInput: '$(this).qtInput(' + index + ')'
-                                }),
-                                $('<div>', { class: 'input-group-btn btn-xs' }).append(
-                                    $('<button>', {
-                                        class: 'btn btn-default btn-xs',
-                                        onclick: '$(this).qtIncrement(' + index + ')'
-                                    }).append(
-                                        $('<i>', { class: 'fa fa-plus' })
+                        $('<td>', { text: index + 1, width: '10%' }),
+                        $('<td>', { text: data.product_name, width: '30%' }),
+                        data.isConcept
+                            ? $('<td>', { text: data.quantity, width: '30%' })
+                            : $('<td>').append(
+                                $('<div>', { class: 'input-group' }).append(
+                                    $('<div>', { class: 'input-group-btn btn-xs' }).append(
+                                        $('<button>', {
+                                            class: 'btn btn-default btn-xs',
+                                            onclick: '$(this).qtDecrement(' + index + ')'
+                                        }).append(
+                                            $('<i>', { class: 'fa fa-minus' })
+                                        )
+                                    ),
+                                    $('<input>', {
+                                        class: 'form-control',
+                                        type: 'number',
+                                        value: data.quantity,
+                                        onInput: '$(this).qtInput(' + index + ')'
+                                    }),
+                                    $('<div>', { class: 'input-group-btn btn-xs' }).append(
+                                        $('<button>', {
+                                            class: 'btn btn-default btn-xs',
+                                            onclick: '$(this).qtIncrement(' + index + ')'
+                                        }).append(
+                                            $('<i>', { class: 'fa fa-plus' })
+                                        )
                                     )
                                 )
-                            )
-                        ),
-                        $('<td>', { text: settings.symbol + (data.price * data.quantity).toFixed(2) }),
-                        $('<td>').append(
+                            ),
+                        $('<td>', { text: settings.symbol + (data.price * data.quantity).toFixed(2), width: '20%' }),
+                        $('<td>', { width: '10%' }).append(
                             $('<button>', {
                                 class: 'btn btn-danger btn-xs',
                                 onclick: '$(this).deleteFromCart(' + index + ')'
@@ -518,11 +520,10 @@ if (auth == undefined) {
 
 
         $.fn.qtIncrement = function (i) {
-
             item = cart[i];
 
             let product = allProducts.filter(function (selected) {
-                return selected._id == parseInt(item.id);
+                return selected._id == item.id;
             });
 
             if (product[0].stock == 1) {
@@ -593,6 +594,37 @@ if (auth == undefined) {
 
         }
 
+        $("#conceptButton").on('click', async function(){
+            const { value: formValues } = await Swal.fire({
+                title: 'Add Concept',
+                html:
+                    '<input id="swal-input1" class="swal2-input" placeholder="Concepto">' +
+                    '<input id="swal-input2" class="swal2-input" placeholder="Precio" type="number" style="max-width: unset">',
+                focusConfirm: false,
+                preConfirm: () => {
+                    return [
+                        document.getElementById('swal-input1').value,
+                        document.getElementById('swal-input2').value
+                    ]
+                }
+            })
+              
+            if (formValues) {
+                item = {
+                    id: `${Math.random()}`,
+                    product_name: formValues[0],
+                    sku: `${Math.random()}`,
+                    price: formValues[1],
+                    quantity: 1,
+                    isConcept: true
+                };
+    
+                cart.push(item)
+                $(this).renderTable(cart)
+            }
+
+            
+        })
 
         $("#payButton").on('click', function () {
             if (cart.length != 0) {
@@ -604,7 +636,6 @@ if (auth == undefined) {
                     'warning'
                 );
             }
-
         });
 
 
@@ -853,7 +884,7 @@ if (auth == undefined) {
                 }, error: function (data) {
                     $(".loading").hide();
                     $("#dueModal").modal('toggle');
-                    swal("Something went wrong!", 'Please refresh this page and try again');
+                    Swal("Something went wrong!", 'Please refresh this page and try again');
 
                 }
             });
@@ -1038,7 +1069,6 @@ if (auth == undefined) {
         }
 
 
-
         $.fn.getCustomerOrders = function () {
             $.get(api + 'customer-orders', function (data) {
                 clearInterval(dotInterval);
@@ -1047,7 +1077,6 @@ if (auth == undefined) {
                 $(this).randerHoldOrders(customerOrderList, customerOrderLocation, 2);
             });
         }
-
 
 
         $('#saveCustomer').on('submit', function (e) {
@@ -1506,21 +1535,30 @@ if (auth == undefined) {
                 });
 
 
-                product_list += `<tr>
-            <td><img id="`+ product._id + `"></td>
-            <td><img style="max-height: 50px; max-width: 50px; border: 1px solid #ddd;" src="${product.img == "" ? "./assets/images/default.jpg" : img_path + product.img}" id="product_img"></td>
-            <td>${product.name}</td>
-            <td>${settings.symbol}${product.price}</td>
-            <td>${product.stock == 1 ? product.quantity : 'N/A'}</td>
-            <td>${category.length > 0 ? category[0].name : ''}</td>
-            <td class="nobr"><span class="btn-group"><button onClick="$(this).editProduct(${index})" class="btn btn-warning btn-sm"><i class="fa fa-edit"></i></button><button onClick="$(this).deleteProduct(${product._id})" class="btn btn-danger btn-sm"><i class="fa fa-trash"></i></button></span></td></tr>`;
+                product_list += `
+                    <tr>
+                        <td><img id="`+ product._id + `"></td>
+                        <td>
+                            <img style="max-height: 50px; max-width: 50px; border: 1px solid #ddd;" src="${product.img == "" ? "./assets/images/default.jpg" : img_path + product.img}" id="product_img">
+                        </td>
+                        <td>${product.name}</td>
+                        <td>${settings.symbol}${product.price}</td>
+                        <td>${product.stock == 1 ? product.quantity : 'N/A'}</td>
+                        <td>${category.length > 0 ? category[0].name : ''}</td>
+                        <td class="nobr">
+                            <span class="btn-group">
+                                <button onClick="$(this).editProduct(${index})" class="btn btn-warning btn-sm"><i class="fa fa-edit"></i></button>
+                                <button onClick="$(this).deleteProduct('${product._id}')" class="btn btn-danger btn-sm"><i class="fa fa-trash"></i></button>
+                            </span>
+                        </td>
+                    </tr>`;
 
                 if (counter == allProducts.length) {
 
                     $('#product_list').html(product_list);
 
                     products.forEach(pro => {
-                        $("#" + pro._id + "").JsBarcode(pro._id, {
+                        $("#" + pro._id + "").JsBarcode(pro.seq, {
                             width: 2,
                             height: 25,
                             fontSize: 14
@@ -1542,32 +1580,34 @@ if (auth == undefined) {
 
 
         function loadCategoryList() {
-
             let category_list = '';
             let counter = 0;
             $('#category_list').empty();
             $('#categoryList').DataTable().destroy();
 
             allCategories.forEach((category, index) => {
-
                 counter++;
 
-                category_list += `<tr>
-     
-            <td>${category.name}</td>
-            <td><span class="btn-group"><button onClick="$(this).editCategory(${index})" class="btn btn-warning"><i class="fa fa-edit"></i></button><button onClick="$(this).deleteCategory(${category._id})" class="btn btn-danger"><i class="fa fa-trash"></i></button></span></td></tr>`;
+                category_list += `
+                    <tr>
+                        <td>${category.name}</td>
+                        <td>
+                            <span class="btn-group">
+                                <button onClick="$(this).editCategory(${index})" class="btn btn-warning"><i class="fa fa-edit"></i></button>
+                                <button onClick="$(this).deleteCategory('${category._id}')" class="btn btn-danger"><i class="fa fa-trash"></i></button>
+                            </span>
+                        </td>
+                    </tr>`;
             });
 
             if (counter == allCategories.length) {
-
                 $('#category_list').html(category_list);
                 $('#categoryList').DataTable({
-                    "autoWidth": false
-                    , "info": true
-                    , "JQueryUI": true
-                    , "ordering": true
-                    , "paging": false
-
+                    "autoWidth": false, 
+                    "info": true, 
+                    "JQueryUI": true, 
+                    "ordering": true, 
+                    "paging": false
                 });
             }
         }
@@ -1939,7 +1979,6 @@ function loadTransactions() {
     let transaction_list = '';
     let query = `by-date?start=${start_date}&end=${end_date}&user=${by_user}&status=${by_status}&till=${by_till}`;
 
-
     $.get(api + query, function (transactions) {
 
         if (transactions.length > 0) {
@@ -1955,8 +1994,6 @@ function loadTransactions() {
                 sales += parseFloat(trans.total);
                 transact++;
 
-
-
                 trans.items.forEach(item => {
                     sold_items.push(item);
                 });
@@ -1971,17 +2008,19 @@ function loadTransactions() {
                 }
 
                 counter++;
-                transaction_list += `<tr>
-                                <td>${trans.order}</td>
-                                <td class="nobr">${moment(trans.date).format('YYYY MMM DD hh:mm:ss')}</td>
-                                <td>${settings.symbol + trans.total}</td>
-                                <td>${trans.paid == "" ? "" : settings.symbol + trans.paid}</td>
-                                <td>${trans.change ? settings.symbol + Math.abs(trans.change).toFixed(2) : ''}</td>
-                                <td>${trans.paid == "" ? "" : trans.payment_type == 0 ? "Cash" : 'Card'}</td>
-                                <td>${trans.till}</td>
-                                <td>${trans.user}</td>
-                                <td>${trans.paid == "" ? '<button class="btn btn-dark"><i class="fa fa-search-plus"></i></button>' : '<button onClick="$(this).viewTransaction(' + index + ')" class="btn btn-info"><i class="fa fa-search-plus"></i></button></td>'}</tr>
-                    `;
+                transaction_list += `
+                    <tr>
+                        <td>${trans._id}</td>
+                        <td class="nobr">${moment(trans.date).format('YYYY MMM DD hh:mm:ss')}</td>
+                        <td>${settings.symbol + trans.total}</td>
+                        <td>${trans.paid == "" ? "" : settings.symbol + trans.paid}</td>
+                        <td>${trans.change ? settings.symbol + Math.abs(trans.change).toFixed(2) : ''}</td>
+                        <td>${trans.paid == "" ? "" : trans.payment_type}</td>
+                        <td>${trans.till}</td>
+                        <td>${trans.user}</td>
+                        <td>${trans.paid == "" ? '<button class="btn btn-dark"><i class="fa fa-search-plus"></i></button>' : '<button onClick="$(this).viewTransaction(' + index + ')" class="btn btn-info"><i class="fa fa-search-plus"></i></button></td>'}
+                    </tr>
+                `;
 
                 if (counter == transactions.length) {
 
@@ -2004,14 +2043,14 @@ function loadTransactions() {
                         result[item].forEach(i => {
                             id = i.id;
                             price = i.price;
-                            quantity += i.quantity;
+                            quantity += Number(i.quantity);
                         });
 
                         sold.push({
                             id: id,
                             product: item,
                             qty: quantity,
-                            price: price
+                            price: price,
                         });
                     }
 
@@ -2074,20 +2113,19 @@ function loadSoldProducts() {
     $('#product_sales').empty();
 
     sold.forEach((item, index) => {
-
         items += item.qty;
-        products++;
-
         let product = allProducts.filter(function (selected) {
             return selected._id == item.id;
         });
+
+        products++;
 
         counter++;
 
         sold_list += `<tr>
             <td>${item.product}</td>
             <td>${item.qty}</td>
-            <td>${product[0].stock == 1 ? product.length > 0 ? product[0].quantity : '' : 'N/A'}</td>
+            <td>${product.length > 0 ? product[0].stock === 1 ? product.length > 0 ? product[0].quantity : '' : 'N/A' : 'N/A'}</td>
             <td>${settings.symbol + (item.qty * parseFloat(item.price)).toFixed(2)}</td>
             </tr>`;
 
@@ -2278,8 +2316,8 @@ $('#users').change(function () {
 
 $('#reportrange').on('apply.daterangepicker', function (ev, picker) {
 
-    start = picker.startDate.format('DD MMM YYYY hh:mm A');
-    end = picker.endDate.format('DD MMM YYYY hh:mm A');
+    start = picker.startDate.format('DD MMM YYYY');
+    end = picker.endDate.format('DD MMM YYYY');
 
     start_date = picker.startDate.toDate().toJSON();
     end_date = picker.endDate.toDate().toJSON();
